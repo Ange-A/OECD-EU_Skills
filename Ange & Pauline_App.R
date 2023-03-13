@@ -1,0 +1,391 @@
+library(shiny)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(plotly)
+library(scales)
+library(ggcorrplot)
+library(forcats)
+
+load("OECD skill job level 1.rdata")
+load("OECD skill job level 2.rdata")
+
+
+ui <- fluidPage(
+  titlePanel("Skills By Country"),
+  sidebarLayout(
+    sidebarPanel(h3("Context"),
+                 p(strong("Skill Imbalance Definiton : "), "A skills imbalance is a 
+        misalignment between the demand and supply of skills in an economy, 
+        and can involve skills shortages and skills mismatches."),
+                 br(),
+                 br(),
+                 p(strong(span("Skills shortages", style = "color : #016c59")), "refer to a 
+      disequilibrium condition in which the demand for a specific type of skill 
+      exceeds its supply in the labour market at the prevailing market wage rate."),
+                 br(),
+                 p(strong(span("Skills surpluses", style = "color : #016c59")), "arise when the 
+        supply of a specific type of skill exceeds its demand in the labour 
+        market."),
+                 br(),
+                 p(strong(span("Skills mismatch", style = "color : #016c59")), "describes situations 
+        where the skills of workers exceed (over-skilling) or fall short 
+        (under-skilling) of those required for the job under current market conditions.",
+                   br(),
+                   em("Mismatch can be measured along different dimensions, including 
+           skills, qualifications and field of study.")
+                 ),
+                 
+    ),
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel(
+          h4("Overview"),
+          br(),
+          fluidRow(
+            selectInput("region", label = "Select a region:", choices = c("European Union", "OECD"))
+          ),
+          plotOutput("plots"),
+          br(),
+          br(),
+          column(12, plotlyOutput(outputId = "plot2"))
+        ),
+        tabPanel(
+          h4("Analysis"),
+          br(),
+          plotOutput("plot3"),
+          br(),
+          plotOutput("plot4"),
+        ),
+        tabPanel(
+          h4("Conclusion"),
+          br(),
+          fluidRow(
+            column(12,
+                   h1("Australia  as a case study"),
+                   br(),
+                   p("In conclusion,  Austria is currently facing a skill shortage in several key industries,
+                       including healthcare, construction, and technology."),
+                   br(),
+                   p("This shortage is partly due to an aging population, emigration of skilled workers, and a lack of investment in education and training.
+                       As a result, companies are struggling to find qualified workers, which is hindering economic growth and innovation.However, Austria also has a surplus 
+                         of workers in some industries, such as hospitality and tourism. This surplus is partly due to the impact of the COVID-19 pandemic on these sectors.") ,
+                   br(), 
+                   
+                   p(" While this surplus may provide some relief in the short term, it is important for Austria to address 
+                         its overall skills gap in order to ensure long-term economic prosperity.To address the skills shortage, 
+                         Austria needs to invest in education and training programs that equip workers with the skills needed for today's job market. 
+                         This should include initiatives to attract and retain skilled workers, as well as support for lifelong learning and upskilling."),
+                   
+                   p("Additionally, policies should be implemented to encourage innovation and entrepreneurship, which can help to create new job opportunities and drive economic growth.Overall, 
+                         addressing the skills shortage in Austria is a complex challenge that requires a multi-faceted approach. By investing in education and training, supporting innovation and entrepreneurship, and attracting and retaining skilled workers, 
+                          Austria can overcome its current skills gap and ensure a prosperous future for its economy and workforce.")
+            )
+          )
+        )
+      )
+    )
+  )
+)
+
+server <- function(input, output, session){
+  
+  output$plots <- renderPlot({
+    
+    if(input$region == "European Union") {
+      
+      df2 <- filter(sjd1, country == "European Union")
+      skill <- unique(sjd1$skill1)
+      
+      # Order the countries 
+      df2$skill1 <- fct_reorder(df2$skill1, df2$value, .desc = FALSE, na.rm = TRUE)
+      
+      # Create a new variable in the data for color mapping
+      df2 <- df2 %>%
+        mutate(color = case_when (
+          skill1 == "Technical Skills" ~ 1,
+          skill1 %in% c("Complex Problem Solving Skills", "Systems Skills", "Basic Skills (Content)", "Basic Skills (Process)") ~ 2,
+          TRUE ~ 3))
+      
+      # Create the plot with ordered x-axis
+      ggplot(df2, aes(x = skill1, y = value, fill = skill1)) +
+        geom_col() +
+        scale_fill_discrete(name = "Skills") +
+        labs(x = "", y = "Percentage of Workers") +
+        theme(
+          axis.text.x = element_text (color = "black", angle=45, hjust=0.9),
+          axis.title.x = element_blank(),
+          panel.background = element_rect (fill = NA),
+          panel.grid.major = element_line (colour = "#00000010"),
+          panel.grid.major.x = element_blank(),
+          legend.position = "top",
+          plot.caption = element_text(hjust = 0, face = "italic"),
+          plot.title = element_text(hjust = 0.3, size = 22, face = "bold"),
+          plot.subtitle = element_text(hjust = 0.5)
+        ) +
+        
+        scale_fill_manual(name = "Legend : ",
+                          labels = c("Basic Skills (Content)", "Basic Skills (Process)",
+                                     "Social Skills", "Complex Problem Solving Skills", 
+                                     "Technical Skills", "Systems Skills", "Resource Management Skills"), 
+                          values = c("#016450", "#02818a", "#3690c0", "#67a9cf", "#a6bddb",
+                                              "#d0d1e6", "#f6eff7" ))+
+                                                
+        
+        # We add some Legend  
+        labs(title = "Fig 1: Only Technical Skills are in slight surplus",
+             subtitle = "European Union(Skill Supply)",
+             caption = "
+         Note : The value represent the skill imbalances indicator. It ranges from 
+         -1 (surplus skill easy to find) to 1 ( shortage skill hard to find) find).
+         
+         Lecture : All EU Skills are in shortage except technical skills with a slight surplus level.
+         
+         Source : sjd1, 2015")
+      
+    } else if (input$region == "OECD") {
+      
+      df1 <- filter(sjd1, country == "OECD")
+      
+      # Order the countries 
+      df1$skill1 <- fct_reorder(df1$skill1, df1$value, .desc = FALSE, na.rm = TRUE)
+      
+      # Create a new variable in the data for color mapping
+      df1 <- df1 %>%
+        mutate(color = case_when (
+          skill1 == "Technical Skills" ~ 1,
+          skill1 %in% c("Complex Problem Solving Skills", "Systems Skills", "Basic Skills (Content)", "Basic Skills (Process)") ~ 2,
+          TRUE ~ 3))
+      
+      # Create the plot with ordered x-axis
+      ggplot(df1, aes(x = skill1, y = value, fill = skill1)) +
+        geom_col() +
+        scale_fill_discrete(name = "Skills") +
+        labs(x = "", y = "Percentage of Workers") +
+        theme(
+          axis.text.x = element_text (color = "black", angle=45, hjust=0.9),
+          axis.title.x = element_blank(),
+          panel.background = element_rect (fill = NA),
+          panel.grid.major = element_line (colour = "#00000010"),
+          panel.grid.major.x = element_blank(),
+          legend.position = "top",
+          plot.caption = element_text(hjust = 0, face = "italic"),
+          plot.title = element_text(hjust = 0.3, size = 22, face = "bold"),
+          plot.subtitle = element_text(hjust = 0.4)
+        ) +
+        
+        scale_fill_manual(name = "Legend : ",
+                          labels = c("Basic Skills (Content)", "Basic Skills (Process)",
+                                     "Social Skills", "Complex Problem Solving Skills", 
+                                     "Technical Skills", "Systems Skills", "Resource Management Skills"), 
+                          values = c("#016450", "#02818a", "#3690c0", "#67a9cf", "#a6bddb",
+                                              "#d0d1e6", "#f6eff7" )) + 
+                                                
+        labs(title = "Fig2: All Skills are in shortage",
+             subtitle = " OECD(Skill Supply)",
+             caption = "
+         Note : The value represent the skill imbalances indicator. It ranges from 
+         -1 (surplus skill easy to find) to 1 ( shortage skill hard to find) find).
+         
+         Lecture : Overall all skills are in shortage for the OECD region.
+         
+         Source : sjd1, 2015")
+      
+      
+      
+      
+    }
+    
+    
+  })
+  
+  output$plot2 <- renderPlotly({
+    
+    ggplot(sjd1, aes(x = country, y = value, group = skill1, color = skill1)) +
+      geom_line() +
+      theme(
+        
+        axis.text.x = element_text (color = "black", angle=45, hjust=0.9),
+        axis.title.x = element_blank(),
+        panel.background = element_rect (fill = NA),
+        panel.grid.major = element_line (colour = "#00000010"),
+        panel.grid.major.x = element_blank(),
+        legend.position = "top",
+        plot.caption = element_text(hjust = 0, face = "italic"),
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5)
+      ) +
+      
+      scale_color_manual(name = "Legend : ",
+                         labels = c("Basic Skills (Content)", "Basic Skills (Process)",
+                                    "Social Skills", "Complex Problem Solving Skills", 
+                                    "Technical Skills", "Systems Skills", "Resource Management Skills"), 
+                         values = c("#016450", "#16819a", "#3690f0", "#67a9cf", "black",
+                                             "pink", "purple" )) +  
+                                               
+      labs(title = "Fig 3: Country & Skills overview (OECD AND EU)",
+           subtitle = "OECD AND EU (Skill Shortage & Surplus)",
+           caption = "
+         Note : The value represent the skill imbalances indicator. It ranges from 
+         -1 (surplus skill easy to find) to 1 ( shortage skill hard to find) find).
+         
+         Lecture : Technical and Systematics skills are the least 
+                   in shortage  for both the EU and OECD regions.
+         
+         Source : sjd1, 2015")
+    
+    
+    
+    
+  })
+  
+  output$plot3 <- renderPlot({
+    df_g1 <- filter(sjd1, skill1 == "Basic Skills (Content)")
+    skill <- unique(sjd1$skill1)
+    
+    # Creation of a basic column chart
+    g <- ggplot(df_g1, aes (x = country, y = value))
+    g + geom_col()
+    
+    # Order the countries
+    df_g1$country <- fct_reorder(df_g1$country, df_g1$value, .desc = FALSE)
+    
+    df_g1 <- df_g1 %>%
+      mutate(color = case_when (
+        country == "Austria" ~ 1,
+        country == "Hungary" | country == "Slovenia" | country == "Slovak Republic" |
+          country == "Italy" | country == "Switzerland" | country == "Germany" | 
+          country == "Czech Republic" ~ 2,
+        country != "Austria" & country != "Hungary" & country != "Slovenia" & 
+          country != "Slovak Republic" & country != "Italy" & country != "Switzerland" & 
+          country != "Germany" & country != "Czech Republic" ~ 3))
+    
+    # Creation of the bar chart
+    g1 <- ggplot(df_g1, aes (x = country, y = value, fill = factor (color))) +
+      geom_col() +
+      scale_fill_manual(name = "Legend : ", labels = c("Selected Country", "Neighboring Countires",
+                                                       "Other Countires"), values = c("#253494", "#74a9cf", "#bdc9e1")) +
+      theme(
+        axis.text.x = element_text (color = "black", angle=45, hjust=0.9),
+        axis.title.x = element_blank(),
+        panel.background = element_rect (fill = NA),
+        panel.grid.major = element_line (colour = "#00000010"),
+        panel.grid.major.x = element_blank(),
+        legend.position = "top",
+        plot.caption = element_text(hjust = 0, face = "italic"),
+        plot.title = element_text(hjust = 0.3, size = 22, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5)) 
+    
+    # Implementation of title, legend, note ...
+    g1 + labs(title = "Figure 4: 0.252 of surplus for Basic Skill (content) in Austria",
+              subtitle = "OECD AND EU (Skill Shortage & Surplus)",
+              caption = "
+         Note : The value represent the skill imbalances indicator. It ranges from 
+         -1 (surplus skill easy to find) to 1 ( shortage skill hard to find) find).
+         
+         Lecture : In 2015, in Austria, the index value was around 0.3, which 
+         means a shortage of people with basic skill. 
+         
+         Source : sjd1, 2015")+
+      
+      theme(
+        axis.text.x = element_text (color = "black", angle=45, hjust=0.9),
+        axis.title.x = element_blank(),
+        panel.background = element_rect (fill = NA),
+        panel.grid.major = element_line (colour = "#00000010"),
+        panel.grid.major.x = element_blank(),
+        legend.position = "top",
+        plot.caption = element_text(hjust = 0, face = "italic"),
+        plot.title = element_text(hjust = 0.3, size = 22, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5)
+      )
+    
+  })
+  output$plot4 <- renderPlot({
+    # Creation of a basic column chart
+    g <- ggplot(df_g3, aes (x = skill2, y = value))
+    g + geom_col()
+    
+    # Order the countries 
+    df_g3$skill2 <- fct_reorder(df_g3$skill2, df_g3$value, .desc = FALSE) # I order the the 
+    #variables "skill1" (factor) according to "value"
+    
+    # First, I create a new variable in my DF for comparisons (1 = France; 
+    #2 = neighboring countries;3 = other countries)
+    df_g3 <- df_g3 %>%
+      mutate(color = case_when (
+        skill2 == "Reading Comprehension" | skill2 == "Active Listening" | 
+          skill2 == "Writing" | skill2 == "Speaking" | skill2 == "Basic Skills (Process)" | 
+          skill2 == "Mathematics Skills" | skill2 == "Science" ~ 1,
+        
+        skill2 == "Critical Thinking" | skill2 == "Active Learning" |  
+          skill2 == "Learning Strategies" | skill2 == "Monitoring" ~ 2,
+        
+        skill2 == "Social Perceptiveness" | skill2 == "Coordination" |
+          skill2 == "Persuasion" | skill2 == "Negotiation" |
+          skill2 == "Instructing" | skill2 == "Service Orientation" ~ 3,
+        
+        skill2 == "Complex Problem Solving Skills" ~ 4,
+        skill2 == "Operations Analysis" | skill2 == "Operations Analysis" | 
+          skill2 == "Equipment Selection" | skill2 == "Installation" |
+          skill2 == "Programming" | skill2 == "Operation Monitoring" |
+          skill2 == "Operation and Control" | skill2 == "Equipment Maintenance" |
+          skill2 == "Troubleshooting" | skill2 == "Repairing" |
+          skill2 == "Quality Control Analysis" ~ 5,
+        
+        skill2 == "Judgment and Decision Making" | skill2 == "Systems Analysis" |
+          skill2 == "Systems Evaluation" ~ 6,
+        
+        skill2 == "Time Management" | skill2 == "Management of Financial Resources" | 
+          skill2 == "Management of Material Resources" | skill2 == "Management of Personnel Resources" ~ 7))
+    
+    # First the bar chart with Austria value
+    g <- ggplot(df_g3, aes (x = skill2, y = value, fill = factor(color))) +
+      geom_col() + 
+      
+      scale_fill_manual(name = "Legend : ", 
+                        labels = c("Basic Skills (Content)", "Basic Skills (Process)",
+                                   "Social Skills", "Complex Problem Solving Skills", 
+                                   "Technical Skills", "Systems Skills", "Resource Management Skills"), 
+                        values = c("#016450", "#02818a", "#3690c0", "#67a9cf", "#a6bddb",
+                                            "#d0d1e6", "#f6eff7" )) +
+                                              
+      
+      
+      
+      theme(axis.text.x = element_text (color = "black", angle=45, hjust=0.9),
+            axis.title.x = element_blank(),
+            panel.background = element_rect (fill = NA),
+            panel.grid.major = element_line (colour = "#00000010"),
+            panel.grid.major.x = element_blank(),
+            legend.position = "top",
+            plot.caption = element_text(hjust = 0, face = "italic"),
+            plot.title = element_text(hjust = 0.3, size = 22, face = "bold"),
+            plot.subtitle = element_text(hjust = 0.5)
+      )+
+      
+      
+      # Implementation of title, legend, note ...
+      labs(title = "Fig 5:  Most surplus skills are complex problem solving skills",
+           subtitle = "OECD & EU (Skill Shortage & Surplus)",
+           caption = "
+         Note : The value represent the skill imbalances indicator. It ranges from 
+         -1 (surplus skill easy to find) to 1 ( shortage skill hard to find) find).
+         
+         Lecture : While Technical and Systematics skills are the least in shortage both  
+         the EU and OECD region, only 2 type of technical skills are in surplus 
+         while 7 types of Complex problem skills are of Surplus.. 
+         
+         Source : sjd1, 2015")
+    
+    
+    
+    g
+    
+    
+  })
+}
+
+shinyApp(ui, server)
